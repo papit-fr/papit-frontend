@@ -1,0 +1,751 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Pybot.Pybot &#8212; Pybot 1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for Pybot.Pybot</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">=====</span>
+<span class="sd">Pybot</span>
+<span class="sd">=====</span>
+<span class="sd">   Pybot class can be used as Jython source to be used in sikuli IDE, not pure python or python3.</span>
+<span class="sd">   Initialize the script by importing the required libraries for test (a.k.a unittest), subprocess and system to using</span>
+<span class="sd">   Windows commands.</span>
+<span class="sd">   Lackey package provide a wrapper arround Sikuli. Contain sources description.</span>
+<span class="sd">   Custom class to be used in as an abstraction layer to sikuli methods and corresponding exception.</span>
+<span class="sd">   Can used command to start/stop program or use commands, access Android mirroring.</span>
+<span class="sd">   Interpretation of GUI, access to windows system commands.</span>
+
+<span class="sd">   .. warning:: Coding style is CamelCase for classes and lowercase_separated_by_underscores A.K.A snake_case for</span>
+<span class="sd">      methods and variables.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">locale</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sqlite3</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="c1"># Import unittest in case of test automation</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span>
+<span class="c1"># To start program of command</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="k">import</span> <span class="n">path</span><span class="p">,</span> <span class="n">makedirs</span><span class="p">,</span> <span class="n">remove</span><span class="p">,</span> <span class="n">listdir</span>
+<span class="kn">from</span> <span class="nn">shutil</span> <span class="k">import</span> <span class="n">copy</span><span class="p">,</span> <span class="n">rmtree</span><span class="p">,</span> <span class="n">move</span>
+<span class="kn">from</span> <span class="nn">time</span> <span class="k">import</span> <span class="n">sleep</span>
+
+<span class="kn">import</span> <span class="nn">easygui</span>
+<span class="kn">import</span> <span class="nn">pytesseract</span>
+<span class="kn">from</span> <span class="nn">PIL</span> <span class="k">import</span> <span class="n">Image</span>
+<span class="kn">from</span> <span class="nn">lackey</span> <span class="k">import</span> <span class="o">*</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s2">&quot;Christophe Brun&quot;</span>
+<span class="n">__credits__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Christophe Brun&quot;</span><span class="p">,</span> <span class="s2">&quot;PapIT&quot;</span><span class="p">]</span>
+<span class="n">__license__</span> <span class="o">=</span> <span class="s2">&quot;No license&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;1.0.0&quot;</span>
+<span class="n">__maintainer__</span> <span class="o">=</span> <span class="s2">&quot;Christophe Brun&quot;</span>
+<span class="n">__email__</span> <span class="o">=</span> <span class="s2">&quot;christophe.brun@papit.fr&quot;</span>
+<span class="n">__status__</span> <span class="o">=</span> <span class="s2">&quot;Development&quot;</span>
+
+<span class="n">IMG_FOLDER</span> <span class="o">=</span> <span class="s2">&quot;img/&quot;</span>
+<span class="n">IMAGE_EXT</span> <span class="o">=</span> <span class="s2">&quot;.png&quot;</span>
+<span class="n">SQLITE3_EXT</span> <span class="o">=</span> <span class="s2">&quot;sqlite3&quot;</span>
+<span class="n">SQLITE3_DATABASE</span> <span class="o">=</span> <span class="s2">&quot;pybot.sqlite3&quot;</span>
+<span class="n">SCRCPY_FOLDER</span> <span class="o">=</span> <span class="s2">&quot;scrcpy-windows-v1.1&quot;</span>
+<span class="n">SCRCPY_EXE</span> <span class="o">=</span> <span class="s2">&quot;scrcpy.exe&quot;</span>
+<span class="n">TESSERACT_CMD</span> <span class="o">=</span> <span class="s2">&quot;tesseract&quot;</span>
+<span class="c1"># TODO all the tesseract languages available</span>
+<span class="n">TESSERACT_LANG</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;fr&quot;</span><span class="p">:</span> <span class="s2">&quot;fra&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;en&quot;</span><span class="p">:</span> <span class="s2">&quot;eng&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ar&quot;</span><span class="p">:</span> <span class="s2">&quot;ara&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ja&quot;</span><span class="p">:</span> <span class="s2">&quot;jpn&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;es&quot;</span><span class="p">:</span> <span class="s2">&quot;spa&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;de&quot;</span><span class="p">:</span> <span class="s2">&quot;deu&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;ru&quot;</span><span class="p">:</span> <span class="s2">&quot;rus&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<div class="viewcode-block" id="PybotException"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.PybotException">[docs]</a><span class="k">class</span> <span class="nc">PybotException</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Automation exception&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Pybot"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot">[docs]</a><span class="k">class</span> <span class="nc">Pybot</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Something to automate on a computer a task, a test, etc...&quot;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cache</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Constructor of the Pybot class.</span>
+<span class="sd">           :param cache: Call a caching method if True, which is the default value.</span>
+<span class="sd">           :raise PybotException: in case of platform compatibility.</span>
+<span class="sd">           :raise TypeError: TypeError if kwarg cache is not a boolean.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cache</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Kwarg cache must be a boolean type, True or False.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">python_version</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">os_type</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">os_version</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">platform</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">machine</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">machine</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">uname</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">uname</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">computer</span> <span class="o">=</span> <span class="n">platform</span><span class="o">.</span><span class="n">node</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen</span> <span class="o">=</span> <span class="n">Screen</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">getBounds</span><span class="p">()[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">getBounds</span><span class="p">()[</span><span class="mi">3</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">screen_bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">getBounds</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_screen</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">getNumberScreens</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span> <span class="o">=</span> <span class="n">SQLITE3_EXT</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">database</span> <span class="o">=</span> <span class="n">SQLITE3_DATABASE</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="o">=</span> <span class="n">cache</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_cache_automaton_screen</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">locale_lang</span> <span class="o">=</span> <span class="n">locale</span><span class="o">.</span><span class="n">getdefaultlocale</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span>
+                <span class="s2">&quot;Pybot class only for Windows platform at the moment.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Description of the Pybot object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2"> automaton executed on </span><span class="si">{1}</span><span class="s2">, a </span><span class="si">{2}</span><span class="s2"> computer&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">python_version</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">computer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">os_version</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        On Pybot object deletion or end of execution or garbage collecting.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stop_android_gui</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Pybot.purge_cache"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.purge_cache">[docs]</a>    <span class="k">def</span> <span class="nf">purge_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Deleting cache database.</span>
+<span class="sd">           :return: True if cache is clear, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rmtree</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="Pybot.text"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.text">[docs]</a>    <span class="k">def</span> <span class="nf">text</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve the text on the screen, default is all the screen.</span>
+<span class="sd">           :param bounds: The bounds of the image to take, default is None, to get the all screen.</span>
+<span class="sd">           :param lang: Specify a lang for the image text by tesseract.</span>
+<span class="sd">           :return: The string decrypted from the screen.</span>
+<span class="sd">           :raise TypeError: If wrong bounds kwarg type. Default is None.</span>
+<span class="sd">           :raise PybotException: If wrong tesseract lang kwarg (tesseract language). Default is None.</span>
+<span class="sd">           :example:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.text(lang=&#39;eng&#39;) # get text of the full screen with english text description</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">lang</span> <span class="ow">in</span> <span class="n">TESSERACT_LANG</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="ow">or</span> <span class="n">lang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_screen</span> <span class="ow">or</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">text</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screenshot</span><span class="p">(</span><span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="n">lang</span><span class="p">)</span>
+                <span class="n">remove</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">IMG_FOLDER</span> <span class="o">+</span> <span class="n">text</span><span class="p">))</span>
+                <span class="k">return</span> <span class="n">text</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg bounds must be tuple type (of bounds).&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s2">&quot;Kwarg lang must be in tesseract language list values or None.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.screenshot"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.screenshot">[docs]</a>    <span class="k">def</span> <span class="nf">screenshot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Taking a screenshot, default is all the screen.</span>
+<span class="sd">           :param bounds: The bounds of the image to take, default is None, to get the all screen.</span>
+<span class="sd">           :param text: Boolean True to discover text, False on contrary.</span>
+<span class="sd">           :param lang: Specify a lang for the image text. Default is None.</span>
+<span class="sd">           :return: A tuple made of the boolean integer, image file and thetext discovered in the image.</span>
+<span class="sd">           :raise TypeError: If wrong bounds kwarg type.</span>
+<span class="sd">           :raise PybotException: If wrong tesseract lang kwarg (tesseract language).</span>
+<span class="sd">           :example:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.screenshot(lang=&#39;eng&#39;) # Screenshot of the full screen with english text description</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">desired_bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen_bounds</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg bounds must be tuple type (of bounds)&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bounds</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_screen</span><span class="p">:</span>
+                <span class="n">desired_bounds</span> <span class="o">=</span> <span class="n">bounds</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Bound kwarg has to be a tuple with length of 4 multiply by the number of screen(s).&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">lang</span> <span class="ow">in</span> <span class="n">TESSERACT_LANG</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="ow">or</span> <span class="n">lang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen</span><span class="o">.</span><span class="n">capture</span><span class="p">(</span><span class="n">desired_bounds</span><span class="p">)</span>
+                <span class="n">img_file</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+                <span class="n">img_file</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">img_file</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">15</span><span class="p">],</span> <span class="n">IMAGE_EXT</span><span class="p">])</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                <span class="n">img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">img_file</span><span class="p">)</span>
+                <span class="n">move</span><span class="p">(</span><span class="n">img_file</span><span class="p">,</span> <span class="n">IMG_FOLDER</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">img</span>
+                <span class="k">if</span> <span class="n">text</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="n">text_string</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_text_img</span><span class="p">(</span><span class="n">img_file</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="n">lang</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">text_string</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_cache_screenshot</span><span class="p">(</span><span class="n">img_file</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">text_string</span><span class="p">)</span>
+                <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">IMG_FOLDER</span> <span class="o">+</span> <span class="n">img_file</span><span class="p">))),</span> <span class="n">img_file</span><span class="p">,</span> <span class="n">text_string</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;text kwarg has to be a boolean&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s2">&quot;Kwarg lang must be in tesseract language list values or None&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.get_text_img"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.get_text_img">[docs]</a>    <span class="k">def</span> <span class="nf">get_text_img</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img_file</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve text from an image.</span>
+<span class="sd">           :param img_file: Name of the image file.</span>
+<span class="sd">           :param lang: None is default, this parameter specify a language to tesseract.</span>
+<span class="sd">           :return: String of the text decrypted</span>
+<span class="sd">           :raise TypeError: If wrong bounds kwarg type.</span>
+<span class="sd">           :raise PybotException: If wrong tesseract lang kwarg (tesseract language). Default is None.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.screenshot(&quot;1234567891012.png&quot;,lang=&#39;eng&#39;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">img_file</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">IMG_FOLDER</span> <span class="o">+</span> <span class="n">img_file</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">lang</span> <span class="ow">in</span> <span class="n">TESSERACT_LANG</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="ow">or</span> <span class="n">lang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">pytesseract</span><span class="o">.</span><span class="n">pytesseract</span><span class="o">.</span><span class="n">tesseract_cmd</span> <span class="o">=</span> <span class="n">TESSERACT_CMD</span>
+                <span class="k">if</span> <span class="n">lang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">text</span> <span class="o">=</span> <span class="n">pytesseract</span><span class="o">.</span><span class="n">pytesseract</span><span class="o">.</span><span class="n">image_to_string</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">text</span> <span class="o">=</span> <span class="n">pytesseract</span><span class="o">.</span><span class="n">pytesseract</span><span class="o">.</span><span class="n">image_to_string</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">lang</span><span class="o">=</span><span class="n">lang</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">text</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s2">&quot;Kwarg lang must be in tesseract language list values or None&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;First argument img_file has to be a string being the image file name&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.check_click"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.check_click">[docs]</a>    <span class="k">def</span> <span class="nf">check_click</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">after_click</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method checking if button exist and clicking on it, return True is clicked False on contrary. Eventually sleep.</span>
+<span class="sd">           :param img: Image path to work on. Check if exist and click.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :param after_click: Another image to eventually click after the first click and before the sleep.</span>
+<span class="sd">           :return: True if img was found and clicked, False on contrary.</span>
+<span class="sd">           :raise TypeError: If arg (img) or kwarg (after_click) are not string type.</span>
+<span class="sd">           :raise PybotException: If img or after_click file path does not exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">img</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">exists</span><span class="p">(</span><span class="n">img</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">click</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">after_click</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">after_click</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">after_click</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">exists</span><span class="p">(</span><span class="n">after_click</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="n">click</span><span class="p">(</span><span class="n">after_click</span><span class="p">)</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+                            <span class="k">return</span> <span class="kc">True</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s1">&#39;Kwarg after_click file path does not exist.&#39;</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg after_click must be a string.&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s1">&#39;First argument img file path does not exist.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument img must be a string.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.wait_click"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.wait_click">[docs]</a>    <span class="k">def</span> <span class="nf">wait_click</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method that wait for a button to appear and click on it. Eventually sleep sleep_sec seconds after.</span>
+<span class="sd">           :param img: Image to wait for and click.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :raise TypeError: If first argument img is not string type.</span>
+<span class="sd">           :raise PybotException: If first argument img file path does not exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">img</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">wait</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+                <span class="n">click</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span><span class="s1">&#39;First argument img file path does not exist.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument img must be a string.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.type_n_time"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.type_n_time">[docs]</a>    <span class="k">def</span> <span class="nf">type_n_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Type n time the desired key. Eventually sleep sleep_sec seconds.</span>
+<span class="sd">           :param n: Number of time to type the key.</span>
+<span class="sd">           :param key: Key to type.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :raise TypeError: n must be an integer or float type.</span>
+
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                test_automaton = Pybot()</span>
+<span class="sd">                test_automaton.type_n_time(5, Key.11)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;n is the number of time to type the key, therefore must be an int or float.&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.exec_cmd"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.exec_cmd">[docs]</a>    <span class="k">def</span> <span class="nf">exec_cmd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="s1">&#39;./&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Execute command on Windows OS.</span>
+<span class="sd">           :param cmd: Command to execute passed a string.</span>
+<span class="sd">           :param sleep_sec: Number of seconds to eventually sleep after the click.</span>
+<span class="sd">           :return: True if return code of the command is 0, false on contrary.</span>
+<span class="sd">           :raise TypeError: If first argument cmd is not a string type.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.exec_cmd(&quot;DIR&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">return_code</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;RT&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">return_code</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">return_code</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument cmd must be an str type.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.start_android_gui"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.start_android_gui">[docs]</a>    <span class="k">def</span> <span class="nf">start_android_gui</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">fullscreen</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start Android mirroring with SCRCPY_EXE if connected and full screen it.</span>
+<span class="sd">           :param sleep_sec: Number of seconds to eventually sleep after the click.</span>
+<span class="sd">           :param fullscreen: If True, start android scrcpy in fullscreen.</span>
+<span class="sd">           :raise TypeError: If kwarg fullscreen is not an boolean type.</span>
+<span class="sd">           :return: Boolean True if started, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fullscreen</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">android_number</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">return_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_pgm</span><span class="p">(</span>
+                    <span class="n">SCRCPY_EXE</span><span class="p">,</span> <span class="n">working_directory</span><span class="o">=</span><span class="n">SCRCPY_FOLDER</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="n">sleep_sec</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">return_code</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">fullscreen</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">android_fullscreen</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">return_code</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg fullscreen must an boolean, True or False.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_fullscreen"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_fullscreen">[docs]</a>    <span class="k">def</span> <span class="nf">android_fullscreen</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Type the scrcpy shortcut to full screen f + CTRL.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;f&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_resize_one_to_one"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_resize_one_to_one">[docs]</a>    <span class="k">def</span> <span class="nf">android_resize_one_to_one</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        resize window to 1:1 (pixel-perfect).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;g&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_remove_black_borders"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_remove_black_borders">[docs]</a>    <span class="k">def</span> <span class="nf">android_remove_black_borders</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        resize window to remove black borders.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;x&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_home"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_home">[docs]</a>    <span class="k">def</span> <span class="nf">android_home</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on HOME.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;h&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_back"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_back">[docs]</a>    <span class="k">def</span> <span class="nf">android_back</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on BACK.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;b&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_app_switch"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_app_switch">[docs]</a>    <span class="k">def</span> <span class="nf">android_app_switch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on APP_SWITCH.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;m&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_volume_up"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_volume_up">[docs]</a>    <span class="k">def</span> <span class="nf">android_volume_up</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on VOLUME_UP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;+&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_volume_down"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_volume_down">[docs]</a>    <span class="k">def</span> <span class="nf">android_volume_down</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on VOLUME_DOWN.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.turn_screen_on"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.turn_screen_on">[docs]</a>    <span class="k">def</span> <span class="nf">turn_screen_on</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        turn screen on.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">rightClick</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Pybot.android_power"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_power">[docs]</a>    <span class="k">def</span> <span class="nf">android_power</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        click on POWER.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;p&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_paste_clipboard"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_paste_clipboard">[docs]</a>    <span class="k">def</span> <span class="nf">android_paste_clipboard</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;paste computer clipboard to device2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;v&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android_toggle_fps_counter"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_toggle_fps_counter">[docs]</a>    <span class="k">def</span> <span class="nf">android_toggle_fps_counter</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        enable/disable FPS counter (on stdout)2</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ctrl_shorcut</span><span class="p">(</span><span class="s1">&#39;i&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.ctrl_shorcut"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.ctrl_shorcut">[docs]</a>    <span class="k">def</span> <span class="nf">ctrl_shorcut</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Type a key with the key modifier CTRL.</span>
+<span class="sd">           :param key: The key to type with the CTRL modifier.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">Key</span><span class="o">.</span><span class="n">CTRL</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.check_android_gui"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.check_android_gui">[docs]</a>    <span class="k">def</span> <span class="nf">check_android_gui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check that Android mirroring with SCRCPY_EXE is running.</span>
+<span class="sd">           :return: Boolean True if mirroring, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_pgm</span><span class="p">(</span><span class="n">SCRCPY_EXE</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.stop_android_gui"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.stop_android_gui">[docs]</a>    <span class="k">def</span> <span class="nf">stop_android_gui</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Stop SCRCPY_EXE processes.</span>
+<span class="sd">           :return: Boolean True if command executed correctly, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kill_pgm</span><span class="p">(</span><span class="n">SCRCPY_EXE</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.android"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android">[docs]</a>    <span class="k">def</span> <span class="nf">android</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Access connected Android device via adb.exe.</span>
+<span class="sd">           :return: Tuple containing the Android Serial number and device type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">adb_output</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_output</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SCRCPY_FOLDER</span><span class="p">,</span> <span class="s2">&quot;adb.exe&quot;</span><span class="p">),</span> <span class="s2">&quot;devices&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+        <span class="n">tup</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">([\w]*)</span><span class="se">\t</span><span class="s2">([\w]*)</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">adb_output</span><span class="p">)</span>
+        <span class="n">android_arr</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">tup</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tup</span><span class="p">)</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">l</span><span class="p">:</span>
+                <span class="n">android_arr</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">tup</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;num&quot;</span><span class="p">:</span> <span class="n">tup</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">]})</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">android_arr</span></div>
+
+<div class="viewcode-block" id="Pybot.android_connected"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_connected">[docs]</a>    <span class="k">def</span> <span class="nf">android_connected</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if an Android is connected.</span>
+<span class="sd">           :return: True if command Android connected, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">android</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="Pybot.android_number"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.android_number">[docs]</a>    <span class="k">def</span> <span class="nf">android_number</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the number of Android device connected.</span>
+<span class="sd">           :return: Integer corresponding to the number of Android device(s).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">android</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Pybot.start_pgm"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.start_pgm">[docs]</a>    <span class="k">def</span> <span class="nf">start_pgm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pgm</span><span class="p">,</span> <span class="n">working_directory</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pgm_arg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start a program in background in a given directory on Windows OS.</span>
+<span class="sd">           :param pgm: Program to start.</span>
+<span class="sd">           :param working_directory: Working directory to start the program, with the .exe extension.</span>
+<span class="sd">           :param pgm_arg: Eventual argument of the program to start.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :return: True if return code of the command is 0, false on contrary.</span>
+<span class="sd">           :raise TypeError: If kwarg pgm_arg or working_direcory kwarg are not None or string type.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+<span class="sd">              </span>
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.start_pgm(&#39;node.exe&#39;, working_directory=&#39;server&#39;, sleep_sec=5)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pgm_arg</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">pgm_arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">working_directory</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">pgm_arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">working_directory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">cwd</span> <span class="o">=</span> <span class="s2">&quot;./&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cwd</span> <span class="o">=</span> <span class="n">working_directory</span>
+
+                <span class="k">if</span> <span class="n">pgm_arg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot; </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pgm_arg</span><span class="p">)</span>
+
+                <span class="c1">#cmd = &quot;{0}START /B {1}{2}&quot;.format(prefix, pgm, suffix)</span>
+                <span class="n">cmd</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pgm</span><span class="p">,</span> <span class="n">suffix</span><span class="p">)</span>
+                <span class="n">return_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">return_code</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg working_directory must a string type.&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;Kwarg pgm_arg must a string type.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.check_pgm"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.check_pgm">[docs]</a>    <span class="k">def</span> <span class="nf">check_pgm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pgm</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if a program is running.</span>
+<span class="sd">           :param pgm: Program to check, with the .exe extension.</span>
+<span class="sd">           :return: True if program running, false on contrary.</span>
+<span class="sd">           :raise TypeError: If only argument pgm is not a string.</span>
+
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.check_pgm(&quot;Firefox.exe&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pgm</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="s1">&#39;tasklist /nh /fi &quot;imagename eq </span><span class="si">{0}</span><span class="s1">&quot; | find /i &quot;</span><span class="si">{0}</span><span class="s1">&quot; &gt; nul&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">pgm</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument pgm must be a string type.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.kill_pgm"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.kill_pgm">[docs]</a>    <span class="k">def</span> <span class="nf">kill_pgm</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pgm</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Kill a program</span>
+<span class="sd">           :param pgm: Program to kill, with the .exe extension.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :return: True if return code of the command is 0, false on contrary.</span>
+<span class="sd">           :raise TypeError: If kwarg pgm_arg or working_direcory kwarg are not None or string type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pgm</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="s2">&quot;Taskkill /IM </span><span class="si">{0}</span><span class="s2"> /F&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">pgm</span><span class="p">)</span>
+            <span class="n">return_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_n_sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">return_code</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument pgm must a string type.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.start_web"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.start_web">[docs]</a>    <span class="k">def</span> <span class="nf">start_web</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start a website on the default browser, wait 5 seconds for it to open and full screen it on Windows OS.</span>
+<span class="sd">           :param url: URL of the website.</span>
+<span class="sd">           :param sleep_sec: Number of seconds of seconds to eventually sleep after the click.</span>
+<span class="sd">           :return: True if return code of the command is 0, false on contrary.</span>
+<span class="sd">           :raise TypeError: If only argument url is not a string.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.start_web(&quot;https://papit.fr&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="s2">&quot;START </span><span class="si">{0}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="n">return_code</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exec_cmd</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">sleep_sec</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+            <span class="n">sleep</span><span class="p">(</span><span class="n">sleep_sec</span><span class="p">)</span>
+            <span class="nb">type</span><span class="p">(</span><span class="n">Key</span><span class="o">.</span><span class="n">F11</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">return_code</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument url must a string type.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.export_sikuli_class"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.export_sikuli_class">[docs]</a>    <span class="k">def</span> <span class="nf">export_sikuli_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">project_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export a sikuli project class to the Pybot package on Windows OS.</span>
+<span class="sd">           :param project_name: Name of the project to export.</span>
+<span class="sd">           :return: True if class file created, False on contrary.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.export_sikuli_class(&quot;tahomaBee&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_sikuli</span><span class="p">(</span><span class="n">project_name</span><span class="p">,</span> <span class="s2">&quot;Pybot&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Pybot.export_sikuli_script"><a class="viewcode-back" href="../../index.html#Pybot.Pybot.Pybot.export_sikuli_script">[docs]</a>    <span class="k">def</span> <span class="nf">export_sikuli_script</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">project_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export a sikuli project script to the script library ./ on Windows OS.</span>
+<span class="sd">           :param project_name: Name of the project to export.</span>
+<span class="sd">           :return: True if script file created, False on contrary.</span>
+<span class="sd">           :examples:</span>
+<span class="sd">              .. code-block:: python</span>
+
+<span class="sd">                 test_automaton = Pybot()</span>
+<span class="sd">                 test_automaton.export_sikuli_script(&quot;tahomaBee&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_export_sikuli</span><span class="p">(</span><span class="n">project_name</span><span class="p">,</span> <span class="s2">&quot;script&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_export_sikuli</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">project_name</span><span class="p">,</span> <span class="n">directory</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export a sikuli project class to the Pybot package on Windows OS.</span>
+<span class="sd">           :param project_name: Name of the project to export.</span>
+<span class="sd">           :param  directory: Export directory of the sikuli project.</span>
+<span class="sd">           :raise PybotException: If project not found.</span>
+<span class="sd">           :return: True if class file created, False on contrary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">directory_name</span> <span class="o">=</span> <span class="s2">&quot;sikuli_project/</span><span class="si">{0}</span><span class="s2">.sikuli&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">project_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">directory_name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">.py&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">project_name</span><span class="p">)</span>
+            <span class="n">new_file</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{0}</span><span class="s2">/</span><span class="si">{1}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="n">file_to_export</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory_name</span><span class="p">,</span> <span class="n">file_name</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="n">data_to_export</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;&#39;&#39;&#39;Generated by Pybot Framework&#39;&#39;&#39;</span><span class="se">\n</span><span class="s2">from lackey import *</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file_to_export</span><span class="o">.</span><span class="n">read</span><span class="p">()])</span>
+            <span class="n">data_to_export</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;([0-9]</span><span class="si">{13}</span><span class="s1">.png)&#39;</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;img/\1&#39;</span><span class="p">,</span> <span class="n">data_to_export</span><span class="p">)</span>
+            <span class="n">file_to_export</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">file_to_write</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">new_file</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+            <span class="n">file_to_write</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">data_to_export</span><span class="p">)</span>
+            <span class="n">file_to_write</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">project_files</span> <span class="o">=</span> <span class="n">listdir</span><span class="p">(</span><span class="n">directory_name</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">file_name</span> <span class="ow">in</span> <span class="n">project_files</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">file_name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">IMAGE_EXT</span><span class="p">):</span>
+                    <span class="n">img</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory_name</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+                    <span class="n">copy</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">IMG_FOLDER</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">new_file</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">PybotException</span><span class="p">(</span>
+                <span class="s2">&quot;Project </span><span class="si">{0}</span><span class="s2"> does not exists in the sikuli_project directory.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">project_name</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">_check_n_sleep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">second</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Internal method to check second, the number of second(s) to sleep, which as to be int or float.</span>
+<span class="sd">           :param second: Number of seconds.</span>
+<span class="sd">           :raise TypeError: First argument second must be an integer or a float.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">second</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)):</span>
+            <span class="n">sleep</span><span class="p">(</span><span class="n">second</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;sleep_sec kwarg is a time in to sleep after click, therefore must be an int or float.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_cache_automaton_screen</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Caching the computer and screen, called if cache kwarg of the constructor is True (default).&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">db</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">))</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="sd">&#39;&#39;&#39;CREATE TABLE IF NOT EXISTS computer </span>
+<span class="sd">                (node TEXT PRIMARY KEY, os_type TEXT, os_version TEXT, ts TIMESTAMP);&#39;&#39;&#39;</span><span class="p">)</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="s2">&quot;INSERT OR REPLACE INTO computer VALUES(?, ?, ?, DATETIME(&#39;now&#39;, &#39;localtime&#39;));&quot;</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">computer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">os_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">os_version</span><span class="p">,))</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+                <span class="s1">&#39;CREATE TABLE IF NOT EXISTS screen (node TEXT, width INT, height INT, ts TIMESTAMP);&#39;</span><span class="p">)</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="s2">&quot;INSERT INTO screen VALUES(?, ?, ?, DATETIME(&#39;now&#39;, &#39;localtime&#39;));&quot;</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">computer</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">screen_height</span><span class="p">,))</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="n">request</span> <span class="o">=</span> <span class="s1">&#39;&#39;&#39;SELECT COUNT (*) </span>
+<span class="s1">            FROM (SELECT node, width, height </span>
+<span class="s1">                FROM screen </span>
+<span class="s1">                WHERE node = ? GROUP BY node, width, height);&#39;&#39;&#39;</span>
+            <span class="n">cur</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">computer</span><span class="p">,))</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">cur</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">res</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">easygui</span><span class="o">.</span><span class="n">ynbox</span><span class="p">(</span>
+                        <span class="sd">&#39;&#39;&#39;Various screens have been used by this computer.\nIt can mess with Sikuli image recognition.</span>
+<span class="sd">Shall I continue?&#39;&#39;&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;Display warning&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;Yes&#39;</span><span class="p">,</span> <span class="s1">&#39;No&#39;</span><span class="p">)):</span>
+                    <span class="k">pass</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">cur</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_cache_screenshot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Caching the the name of the screenshot image.</span>
+<span class="sd">           :param file_name: Name of the image file to cache.</span>
+<span class="sd">           :param text: Text detected in the image by tesseract.</span>
+<span class="sd">           :raise TypeError: If first argument file_name is not a string type.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+                <span class="n">db</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">database_directory</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">database</span><span class="p">))</span>
+                <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;CREATE TABLE IF NOT EXISTS screenshot </span>
+<span class="s1">                    (image TEXT PRIMARY KEY, node TEXT, text TEXT, ts TIMESTAMP);&#39;&#39;&#39;</span><span class="p">)</span>
+                <span class="n">request</span> <span class="o">=</span> <span class="s2">&quot;INSERT OR REPLACE INTO screenshot VALUES(?, ?, ?, DATETIME(&#39;now&#39;, &#39;localtime&#39;));&quot;</span>
+                <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">computer</span><span class="p">,</span> <span class="n">text</span><span class="p">,))</span>
+                <span class="n">db</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">db</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;First argument file_name must be a string type.&#39;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Christophe Brun.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.11</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

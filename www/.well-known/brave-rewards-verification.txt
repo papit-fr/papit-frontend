@@ -1,0 +1,4 @@
+This is a Brave Rewards publisher verification file.
+
+Domain: papit.fr
+Token: 931135c985ad1b512bfce64e8e8e5402718c4aab77092d07d8fe335c574919a7 
