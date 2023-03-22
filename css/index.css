@@ -1,0 +1,52 @@
+@font-face {
+    font-display: swap;
+    font-family: 'Exo 2';
+    font-style: normal;
+    src: url("../font/Exo2-Regular.ttf") format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Exo 2';
+    font-style: italic;
+    src: url("../font/Exo2-Italic.ttf") format('truetype');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Exo 2';
+    font-style: normal;
+    font-weight: bold;
+    src: url("../font/Exo2-Bold.ttf") format('truetype');
+}
+
+* {
+    font-family: 'Exo 2', sans-serif !important;
+}
+
+h2 {
+    color: #FE7A22 !important;
+    font-size: x-large;
+}
+html,
+body {
+    height: 100%;
+    background-color: #c6e2ff;
+    font-size: medium;
+    text-align: justify;
+    margin: 1%;
+}
+.line {
+    border: 3px solid white;
+    width: 100%;
+    margin-bottom: 1%;
+    border-radius: 2px;
+}
+.bounce{
+    animation: bounce 0.5s ease infinite alternate;
+}
+
+@keyframes bounce{
+    from {transform: translateY(0);}
+    to   {transform: translateY(-20px);}
+}
