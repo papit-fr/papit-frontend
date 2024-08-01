@@ -8,42 +8,57 @@
 
 <url>
   <loc>https://www.papit.fr/</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>1.00</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/data.html</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/utiles.html</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/references.html</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/contact.html</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.80</priority>
 </url>
 <url>
+  <loc>https://www.papit.fr/pdf/proof.pdf</loc>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
   <loc>https://www.papit.fr/pdf/CoBOL%20in%20GraalVM.pdf</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.64</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/pdf/Python%20is%20just%20an%20idiom.pdf</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.64</priority>
 </url>
 <url>
   <loc>https://www.papit.fr/pdf/Enthic%20-%20Grenoble%20-%202020-10-15.pdf</loc>
-  <lastmod>2023-07-12T15:09:19+00:00</lastmod>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.papit.fr/pdf/Qualit%C3%A9-Code-Source-L3-CSI-readable.pdf</loc>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
+  <priority>0.64</priority>
+</url>
+<url>
+  <loc>https://www.papit.fr/pdf/Architecture-Application-L3-CSI-readable.pdf</loc>
+  <lastmod>2024-07-19T20:55:13+00:00</lastmod>
   <priority>0.64</priority>
 </url>
 
