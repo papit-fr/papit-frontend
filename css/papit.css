@@ -166,7 +166,7 @@ section {
         text-align: center;
         margin-top: 0 !important;
         overflow-y: auto;
-        height: calc(100vh - 4rem);
+        height: calc(100vh - 2rem);
         margin-bottom: 2rem
     }
 
@@ -187,8 +187,8 @@ section {
         bottom: 0
     }
 
-    .bx--dropdown-text {
-        font-size: 1rem;
+    .bx--dropdown-text,.bx--dropdown-link {
+        font-size: 0.8rem;
         font-weight: 600;
     }
 }
