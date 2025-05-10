@@ -123,10 +123,6 @@ section {
     height: auto
 }
 
-.image-wrapper {
-    text-align: center
-}
-
 .bx--header {
     display: flex;
     font-size: large;
